@@ -15,8 +15,8 @@ struct DATA_SET {
 
 void setup() {
   xSerialBox = xQueueCreate(10, sizeof(DATA_SET));
-  xTaskCreatePinnedToCore(main_task, "main_task", 4096, NULL, 3, &thp[0], 0); 
-  xTaskCreatePinnedToCore(UserIO, "UserIO", 4096, NULL, 5, &thp[1], 0);
+  xTaskCreatePinnedToCore(main_task, "main_task", 4096, NULL, 1, &thp[0], 0); 
+  xTaskCreatePinnedToCore(UserIO, "UserIO", 4096, NULL, 1, &thp[1], 1);
 }
 
 void loop(); // ｷｮﾑﾘ
