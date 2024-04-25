@@ -1,22 +1,37 @@
 #include <Arduino.h>
-#include "./Tasks/Main_Task/Main_Task.h"
-#include "./Tasks/UserIO_Task/UserIO_Task.h"
+#include <M5AtomS3.h>
+#include <BLE_Kit4C3.h>
 
-TaskHandle_t thp[2];
-QueueHandle_t xSerialBox;
-
-struct DATA_SET {
-  int16_t IMU_X;
-  int16_t IMU_Y;
-  int16_t IMU_Z;
-  uint16_t LEFT_SPEED;
-  uint16_t RIGHT_SPEED;
-};
+BLE_Peripheral ble("BLE_Kit4C3 Peripheral");
+const uint8_t DISPLAY_BUTTON = 41;
 
 void setup() {
-  xSerialBox = xQueueCreate(10, sizeof(DATA_SET));
-  xTaskCreatePinnedToCore(main_task, "main_task", 4096, NULL, 1, &thp[0], 0); 
-  xTaskCreatePinnedToCore(UserIO, "UserIO", 4096, NULL, 1, &thp[1], 1);
+  Serial2.begin(9600, SERIAL_8N1, 39, 38);
+  Serial.begin(115200); //Start Serial monitor in 115200
+  Serial.println("Start BLE Peripheral");
+  ble.enableDebugMode();
+  ble.init();
+  Serial.println("Bluetooth Device is Ready to Pair");
+
+  pinMode(DISPLAY_BUTTON, INPUT_PULLUP);
 }
 
-void loop(); // ｷｮﾑﾘ
+void loop() {
+  if (ble.checkConnection()) {
+    static unsigned long flagTimer = millis();
+    if (millis() - flagTimer > 1000) {
+      char sendDataArr[] = "Hello world!";
+      int dataSize = sizeof(sendDataArr) / sizeof(sendDataArr[0]);
+
+      ble.write(sendDataArr, dataSize);
+      Serial.println("Send Data to Central");
+
+      flagTimer = millis();
+    }
+
+    while (ble.available() != 0) {
+      char data = ble.read();
+      Serial.write(data);
+    }
+  }
+}
