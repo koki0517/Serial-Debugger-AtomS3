@@ -18,7 +18,9 @@ void main_task(void *pvParameters){
     Serial.println("Bluetooth Mode");
     syncSerial();
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
-      GET_SERIAL_DATA();
+      std::vector<char> recievedData = GET_SERIAL_DATA();
+      if (digitalRead(DISPLAY_BUTTON) == LOW) break;
+      SEND_SERIAL(DebugMode::BLUETOOTH_MODE, recievedData);
       delay(1);
     }
     while (digitalRead(DISPLAY_BUTTON) == LOW) delay(1);
@@ -29,7 +31,7 @@ void main_task(void *pvParameters){
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA();
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
-      SEND_SERIAL(DebugMode::SERIAL_MODE, recievedData);
+      SEND_SERIAL(DebugMode::ALL_MODE, recievedData);
       delay(1);
     }
     while (digitalRead(DISPLAY_BUTTON) == LOW) delay(1);
@@ -57,6 +59,24 @@ static void SEND_SERIAL(DebugMode mode, std::vector<char>& charArray){
   std::copy(charArray.begin(), charArray.end(), sendArray);
   if (mode == DebugMode::SERIAL_MODE || mode == DebugMode::ALL_MODE){
     Serial.write(sendArray, charArray.size());
+    Serial.print(Serial2.available());
+    Serial.println(" left");
+
+    // while (Serial.available() != 0) { // 受信した場合
+    //   char data = Serial.read();
+    //   Serial2.write(data);
+    // } 
+  }
+  if (mode == DebugMode::BLUETOOTH_MODE || mode == DebugMode::ALL_MODE){
+    if (ble.checkConnection()) {
+      ble.write(sendArray, charArray.size());
+
+      while (ble.available() != 0) { // 受信した場合
+        char data = ble.read();
+        Serial.write(data);
+        Serial2.write(data);
+      }
+    }
   }
   delete[] sendArray;
 }
