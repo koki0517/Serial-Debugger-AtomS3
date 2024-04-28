@@ -1,7 +1,7 @@
 #pragma once
 #include <Arduino.h>
 #include "../QUEUE_DATA_SET.h"
-#include <unordered_map>
+
 /*
  * Seral2からデータを受け取って
  * * Serial
@@ -10,20 +10,15 @@
  * に流す
 */
 
-extern uint8_t DISPLAY_BUTTON = 41;
-
-enum class DebugMode{
-  SERIAL_MODE,
-  BLUETOOTH_MODE,
-  ALL_MODE,
-};
+extern const uint8_t DISPLAY_BUTTON;
 
 void main_task(void *pvParameters);
 
-static void GET_SERAL_DATA();
+static void syncSerial();
+
+static void GET_SEND_SERAL_DATA(DebugMode mode);
 
 static void SEND_ANOTHER_TASK();
 
-static void SNED_SERIAL();
-
-static void SEND_BLUETOOTH();
+static void SNED_SERIAL(uint8_t dataID, std::vector<char>& byteArray);
+static void SEND_BLUETOOTH(char dataID, std::vector<std::vector<char>>& byteArray);
