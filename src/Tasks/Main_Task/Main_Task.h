@@ -16,9 +16,9 @@ void main_task(void *pvParameters);
 
 static void syncSerial();
 
-static void GET_SEND_SERAL_DATA(DebugMode mode);
+static std::vector<char> GET_SERIAL_DATA();
 
 static void SEND_ANOTHER_TASK();
 
-static void SNED_SERIAL(uint8_t dataID, std::vector<char>& byteArray);
+static void SEND_SERIAL(DebugMode mode, std::vector<char>& charArray);
 static void SEND_BLUETOOTH(char dataID, std::vector<std::vector<char>>& byteArray);
