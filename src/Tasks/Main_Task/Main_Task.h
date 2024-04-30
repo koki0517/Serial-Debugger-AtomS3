@@ -20,6 +20,6 @@ static void syncSerial();
 
 static std::vector<char> GET_SERIAL_DATA();
 
-static void SEND_ANOTHER_TASK();
+static void SEND_ANOTHER_TASK(std::vector<char>& charArray);
 
 static void SEND_SERIAL(DebugMode mode, std::vector<char>& charArray);
