@@ -2,10 +2,14 @@
 
 void main_task(void *pvParameters){
   // 3つのモードを順に回す
+  const DebugMode SERIAL_MODE = DebugMode::SERIAL_MODE;
+  const DebugMode BLUETOOTH_MODE = DebugMode::BLUETOOTH_MODE;
+  const DebugMode ALL_MODE = DebugMode::ALL_MODE;
   while (1){
     // Serial Mode
     Serial.println("Serial Mode");
     syncSerial();
+    xQueueSendToBack(xModeQueue, &SERIAL_MODE, portMAX_DELAY);
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA();
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
@@ -17,6 +21,7 @@ void main_task(void *pvParameters){
     // Bluetooth Mode
     Serial.println("Bluetooth Mode");
     syncSerial();
+    xQueueSendToBack(xModeQueue, &BLUETOOTH_MODE, portMAX_DELAY);
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA();
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
@@ -28,6 +33,7 @@ void main_task(void *pvParameters){
     // All Mode
     Serial.println("All Mode");
     syncSerial();
+    xQueueSendToBack(xModeQueue, &ALL_MODE, portMAX_DELAY);
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA();
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
@@ -54,13 +60,11 @@ static std::vector<char> GET_SERIAL_DATA(){ // 改行コードを受け取るま
   return recievedData;
 }
 
-static void SEND_SERIAL(DebugMode mode, std::vector<char>& charArray){
+static void SEND_SERIAL(DebugMode mode, const std::vector<char>& charArray){
   char* sendArray = new char[charArray.size()];
   std::copy(charArray.begin(), charArray.end(), sendArray);
   if (mode == DebugMode::SERIAL_MODE || mode == DebugMode::ALL_MODE){ // シリアルに送信
     Serial.write(sendArray, charArray.size());
-    Serial.print(Serial2.available());
-    Serial.println(" left");
 
     while (Serial.available() != 0) { // 受信した場合
       char data = Serial.read();
@@ -81,8 +85,12 @@ static void SEND_SERIAL(DebugMode mode, std::vector<char>& charArray){
   delete[] sendArray;
 }
 
-static void SEND_ANOTHER_TASK(std::vector<char>& charArray){
-  if (charArray.front() == 0x23/* #タイトル */ || charArray.front() == 0x2A/* *要素 */) {
+static void SEND_ANOTHER_TASK(const std::vector<char>& charArray){
+  if (charArray.front() == 0x2A/* *要素 */) {
     // Queueに送る
+    QUEUE_DATA_SET send_data;
+    send_data.size = charArray.size();
+    std::copy(charArray.begin(), charArray.end(), send_data.data);
+    xQueueSendToBack(xQueue, &send_data, portMAX_DELAY);
   }
 }
