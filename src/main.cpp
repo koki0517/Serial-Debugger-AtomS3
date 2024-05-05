@@ -1,5 +1,4 @@
 #include <Arduino.h>
-#include <M5AtomS3.h>
 #include <BLE_Kit4C3.h>
 #include <cstring>
 #include "./Tasks/Main_Task.h"
@@ -7,11 +6,16 @@
 void initDisplay();
 
 TaskHandle_t thp[1];
-QueueHandle_t xQueue, xModeQueue;
+QueueHandle_t xQueue, xModeQueue, xSerial2RecievedFlagQueue;
 
 M5Canvas canvas(&M5.Lcd);
-BLE_Peripheral ble("AtomS3 Debugger");
+M5Canvas canvasSerial(&M5.Lcd);
+M5Canvas canvasBluetooth(&M5.Lcd);
+M5Canvas canvasAll(&M5.Lcd);
+BLE_Peripheral ble("AtomS3 BLE Debugger");
 const uint8_t DISPLAY_BUTTON = 41;
+unsigned long lastRecievedTime;
+bool isGreenCircle = false;
 
 void setup() {
   auto cfg = M5.config(); // 本体初期設定
@@ -29,99 +33,116 @@ void setup() {
   pinMode(DISPLAY_BUTTON, INPUT_PULLUP);
   xQueue = xQueueCreate(10, sizeof(QUEUE_DATA_SET));
   xModeQueue = xQueueCreate(10, sizeof(DebugMode));
+  xSerial2RecievedFlagQueue = xQueueCreate(10, sizeof(char));
+  lastRecievedTime = millis();
   
   xTaskCreatePinnedToCore(main_task, "main_task", 8192, NULL, 1, &thp[0], 0); 
 }
 
 void loop(){
+  BaseType_t result;
   QUEUE_DATA_SET recievedData;
-  xQueueReceive(xQueue, &recievedData, portMAX_DELAY);
+  result = xQueueReceive(xQueue, &recievedData, 1);
 
-  if (std::strstr(recievedData.data, "*IMU X") != nullptr) {
-    Serial.println("x");
-  }
-  else if (std::strstr(recievedData.data, "*IMU Y") != nullptr) {
-    Serial.println("y");
-  }
-  else if (std::strstr(recievedData.data, "*IMU Z") != nullptr) {
-    Serial.println("z");
-  }
-  else if (std::strstr(recievedData.data, "*Left Motor") != nullptr) {
-    Serial.println("left");
-  }
-  else if (std::strstr(recievedData.data, "*Right Motor") != nullptr) {
-    Serial.println("right");
+  if (result == pdTRUE){
+    if (std::strstr(recievedData.data, "*IMU X") != nullptr) {
+      Serial.println("x");
+    }
+    else if (std::strstr(recievedData.data, "*IMU Y") != nullptr) {
+      Serial.println("y");
+    }
+    else if (std::strstr(recievedData.data, "*IMU Z") != nullptr) {
+      Serial.println("z");
+    }
+    else if (std::strstr(recievedData.data, "*Left Motor") != nullptr) {
+      Serial.println("left");
+    }
+    else if (std::strstr(recievedData.data, "*Right Motor") != nullptr) {
+      Serial.println("right");
+    }
   }
   
   DebugMode recievedMode;
-  BaseType_t result;
   result = xQueueReceive(xModeQueue, &recievedMode, 1);
   if (result == pdTRUE){
     switch (recievedMode){
       case DebugMode::SERIAL_MODE:
-        Serial.println("#Serial Mode");
+        canvasSerial.pushSprite(0,26);
         break;
       case DebugMode::BLUETOOTH_MODE:
-        Serial.println("#Bluetooth Mode");
+        canvasBluetooth.pushSprite(0,26);
         break;
       case DebugMode::ALL_MODE:
-        Serial.println("#All Mode");
+        canvasAll.pushSprite(0,26);
         break;
     }
   }
+
+  char tmp;
+  result = xQueueReceive(xSerial2RecievedFlagQueue, &tmp, 1);
+  if (result == pdTRUE){
+    lastRecievedTime = millis();
+    if (!isGreenCircle){
+      isGreenCircle = true;
+      M5.Lcd.fillCircle(115, 35, 5, TFT_GREEN);
+    }
+  } else if ((millis() - lastRecievedTime) > 1000 && isGreenCircle){ // 1s以上受け取ってない
+    M5.Lcd.fillCircle(115, 35, 5, TFT_RED);
+    isGreenCircle = false;
+  }
   delay(1);
-
-  canvas.setColorDepth(16);                        // カラーモード設定(16bit)
-  canvas.createSprite(M5.Lcd.width(), M5.Lcd.height());  // canvas1サイズ（メモリ描画領域）設定（画面サイズに設定）
-  canvas.fillScreen(TFT_BLACK);                    // 背景色（透明）
-  canvas.fillCircle(64, 64, 63, TFT_LIGHTGRAY);    // 塗り潰し円
-  canvas.fillCircle(64, 64, 59, TFT_ORANGE);       // 塗り潰し円
-  canvas.setTextColor(TFT_WHITE);                  // 文字色
-  canvas.drawCentreString("ロジカラ", 64, 37, &fonts::lgfxJapanGothicP_28);  // 上中央座標を基準に文字表示（表示内容, x, y, フォント）
-  canvas.drawCentreString("ブログ", 64, 65, &fonts::lgfxJapanGothicP_28);    // 上中央座標を基準に文字表示（表示内容, x, y, フォント）
-  
-
-  // canvas.clear(M5.Lcd.color565(20, 0, 0)); // 背景色
-  // canvas.setCursor(0, 10);              // カーソル座標
-  // canvas.setFont(&fonts::Font7);        // フォント
-  // if (limit_flag == false) {            // カウントリミットフラグがfalseなら
-  //   canvas.setTextColor(TFT_YELLOW);    // 文字色（黄）
-  // } else {                              // カウントリミットフラグがtrueなら
-  //   canvas.setTextColor(TFT_RED);       // 文字色（赤）
-  // }
-  // canvas.setTextSize(0.9);              // 文字サイズ倍率
-  // canvas.printf("%d:%02d", min_cnt, sec_cnt); // カウント値表示（分：秒）
-
-  // canvas.setCursor(95, 27);             // カーソル座標
-  // canvas.setTextSize(0.47);             // 文字サイズ倍率
-  // canvas.printf(":%02d", msec_cnt);     // カウント値表示（：ミリ秒）
-  // canvas.pushSprite(0, 48); // 座標を指定してメモリ描画領域表示実行(x, y)delay(100);
 }
 
 void initDisplay(){
   // 液晶初期化
   M5.Lcd.init();                         // 初期化
   M5.Lcd.setTextWrap(false);             // テキストが画面からはみ出した時の折り返し無し
-  M5.Lcd.clear(M5.Lcd.color565(0, 0, 0));  // 背景色
-  M5.Lcd.setTextColor(TFT_WHITE);        // 文字色
+  M5.Lcd.clear(M5.Lcd.color565(30, 30, 100));  // 背景色
+  M5Canvas canvasTitle(&M5.Lcd), canvasTitleBottom(&M5.Lcd);
+  canvasTitle.setColorDepth(16);     // カラーモード設定(16bit)
+  canvasTitle.setTextWrap(false);    // テキストが画面からはみ出した時の折り返し無し
+  canvasTitle.createSprite(128, 26); // メモリ描画(カウント値表示)領域を設定(X, Y)
 
   // 初期画面
-  M5.Lcd.fillRect(0, 0, 128, 25, TFT_WHITE);       // タイトルエリア背景
-  M5.Lcd.setTextColor(M5.Lcd.color565(20, 20, 20));   // 文字色
-  M5.Lcd.drawString("ATOM", 12, 2, &fonts::Font4); // 上中央座標を基準に文字表示（表示内容, x, y）
-  M5.Lcd.setTextColor(TFT_RED);                    // 文字色
-  M5.Lcd.drawString("S3", 88, 2, &fonts::Font4);   // 上中央座標を基準に文字表示（表示内容, x, y）
-  M5.Lcd.fillRect(16, 14, 7, 2, TFT_RED);          // ATOMの「A」の横線用
-
-  M5.Lcd.setTextColor(TFT_CYAN);                   // 文字色
-  M5.Lcd.drawCentreString("3分ｶｳﾝﾄﾀﾞｳﾝﾀｲﾏ", 64, 28, &fonts::lgfxJapanGothicP_16); // 上中央座標を基準に文字表示（表示内容, x, y, フォント）
-  M5.Lcd.drawFastHLine(0, 46, 128, TFT_WHITE);     // 指定座標から横線(x, y, 長さ, 色)
-  M5.Lcd.drawFastHLine(0, 112, 128, TFT_WHITE);    // 指定座標から横線(x, y, 長さ, 色)
-  M5.Lcd.setTextColor(TFT_WHITE);                  // 文字色
-  M5.Lcd.drawCentreString("Long Press Reset", 64, 113, &fonts::Font2); // 上中央座標を基準に文字表示（表示内容, x, y, フォント）
+  canvasTitle.fillRect(0, 0, 128, 26, TFT_WHITE);       // タイトルエリア背景
+  canvasTitle.setTextColor(canvas.color565(50,50,255));
+  canvasTitle.drawString("B", 4, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("L", 14, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("E", 25, 0, &fonts::efontJA_24);
+  canvasTitle.setTextColor(canvas.color565(255,50,50));
+  canvasTitle.drawString("D", 37, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("e", 48, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("b", 59, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("u", 70, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("g", 81, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("g", 92, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("e", 103, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("r", 114, 0, &fonts::efontJA_24);
+  canvasTitle.pushSprite(0,0);
+  M5.Lcd.drawFastHLine(0, 46, 128, TFT_WHITE); // モードのバー
 
   // メモリ描画(カウント値表示)領域初期化
   canvas.setColorDepth(16);     // カラーモード設定(16bit)
   canvas.setTextWrap(false);    // テキストが画面からはみ出した時の折り返し無し
-  canvas.createSprite(128, 64); // メモリ描画(カウント値表示)領域を設定(X, Y)
+  canvas.createSprite(128, 102); // メモリ描画(カウント値表示)領域を設定(X, Y)
+
+  canvasSerial.setColorDepth(16);
+  canvasBluetooth.setColorDepth(16);
+  canvasAll.setColorDepth(16);
+  canvasSerial.setTextWrap(false);
+  canvasBluetooth.setTextWrap(false);
+  canvasAll.setTextWrap(false);
+  canvasSerial.createSprite(90, 20);
+  canvasBluetooth.createSprite(90, 20);
+  canvasAll.createSprite(90, 20);
+  canvasSerial.fillRect(0, 0, 90, 20, canvasSerial.color565(0,22,90));
+  canvasBluetooth.fillRect(0, 0, 90, 20, canvasSerial.color565(0,22,90));
+  canvasAll.fillRect(0, 0, 90, 20, canvasSerial.color565(0,22,90));
+  canvasSerial.setTextColor(TFT_CYAN);
+  canvasBluetooth.setTextColor(TFT_CYAN);
+  canvasAll.setTextColor(TFT_CYAN);
+  canvasSerial.drawString("Serial", 4, 1, &fonts::efontJA_16);
+  canvasSerial.drawString("Mode", 55, 1, &fonts::efontJA_16);
+  canvasBluetooth.drawString("BLE Mode", 4, 1, &fonts::efontJA_16);
+  canvasAll.drawString("ALL Mode", 4, 1, &fonts::efontJA_16);
 }

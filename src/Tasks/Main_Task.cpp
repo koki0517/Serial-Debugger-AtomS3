@@ -47,7 +47,7 @@ void main_task(void *pvParameters){
 static void syncSerial(){ // 改行コードを受け取るまで待つ
   do {
     while (Serial2.available() == 0 && digitalRead(DISPLAY_BUTTON) == HIGH) delay(1);
-  } while (Serial2.read() != 0x0A);
+  } while (Serial2.read() != 0x0A && digitalRead(DISPLAY_BUTTON) == HIGH);
 }
 
 static std::vector<char> GET_SERIAL_DATA(){ // 改行コードを受け取るまでデータを蓄積する
@@ -57,6 +57,8 @@ static std::vector<char> GET_SERIAL_DATA(){ // 改行コードを受け取るま
     if (digitalRead(DISPLAY_BUTTON) == LOW) break;
     recievedData.push_back(Serial2.read());
   } while (recievedData.back() != 0x0A);
+  char tmp = 0x00;
+  xQueueSendToBack(xSerial2RecievedFlagQueue, &tmp, portMAX_DELAY);
   return recievedData;
 }
 

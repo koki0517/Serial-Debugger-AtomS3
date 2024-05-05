@@ -1,5 +1,6 @@
 #pragma once
 #include <Arduino.h>
+#include <M5AtomS3.h>
 #include <unordered_map>
 #include <vector>
 #include <string>
@@ -15,7 +16,7 @@
 
 extern const uint8_t DISPLAY_BUTTON;
 extern BLE_Peripheral ble;
-extern QueueHandle_t xQueue, xModeQueue;
+extern QueueHandle_t xQueue, xModeQueue, xSerial2RecievedFlagQueue;
 
 enum class DebugMode :int8_t{
   SERIAL_MODE,
@@ -31,9 +32,6 @@ struct QUEUE_DATA_SET{
 void main_task(void *pvParameters);
 
 static void syncSerial();
-
 static std::vector<char> GET_SERIAL_DATA();
-
 static void SEND_ANOTHER_TASK(const std::vector<char>& charArray);
-
 static void SEND_SERIAL(DebugMode mode, const std::vector<char>& charArray);
