@@ -68,19 +68,27 @@ static void SEND_SERIAL(DebugMode mode, const std::vector<char>& charArray){
   if (mode == DebugMode::SERIAL_MODE || mode == DebugMode::ALL_MODE){ // シリアルに送信
     Serial.write(sendArray, charArray.size());
 
-    while (Serial.available() != 0) { // 受信した場合
-      char data = Serial.read();
-      Serial2.write(data);
-    } 
+    if (Serial.available() != 0){ // 受信した場合
+      WrittenBy hoge = WrittenBy::Serial0;
+      xQueueSendToBack(xSerial2WriteFlagQueue, &hoge, portMAX_DELAY);
+      while (Serial.available() != 0) { 
+        char data = Serial.read();
+        Serial2.write(data);
+      } 
+    }
   }
   if (mode == DebugMode::BLUETOOTH_MODE || mode == DebugMode::ALL_MODE){ // BLEで送信
     if (ble.checkConnection()) {
       ble.write(sendArray, charArray.size());
 
-      while (ble.available() != 0) { // 受信した場合
-        char data = ble.read();
-        Serial.write(data);
-        Serial2.write(data);
+      if (ble.available() != 0) {
+        WrittenBy hoge = WrittenBy::BLE;
+        xQueueSendToBack(xSerial2WriteFlagQueue, &hoge, portMAX_DELAY);
+        while (ble.available() != 0) { // 受信した場合
+          char data = ble.read();
+          Serial.write(data);
+          Serial2.write(data);
+        }
       }
     }
   }

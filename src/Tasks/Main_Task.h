@@ -16,12 +16,17 @@
 
 extern const uint8_t DISPLAY_BUTTON;
 extern BLE_Peripheral ble;
-extern QueueHandle_t xQueue, xModeQueue, xSerial2RecievedFlagQueue;
+extern QueueHandle_t xQueue, xModeQueue, xSerial2RecievedFlagQueue, xSerial2WriteFlagQueue;
 
 enum class DebugMode :int8_t{
   SERIAL_MODE,
   BLUETOOTH_MODE,
   ALL_MODE,
+};
+
+enum class WrittenBy :int8_t{
+  BLE,
+  Serial0,
 };
 
 struct QUEUE_DATA_SET{

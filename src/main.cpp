@@ -6,7 +6,7 @@
 void initDisplay();
 
 TaskHandle_t thp[1];
-QueueHandle_t xQueue, xModeQueue, xSerial2RecievedFlagQueue;
+QueueHandle_t xQueue, xModeQueue, xSerial2RecievedFlagQueue, xSerial2WriteFlagQueue;
 
 M5Canvas canvas(&M5.Lcd);
 M5Canvas canvasSerial(&M5.Lcd);
@@ -14,8 +14,8 @@ M5Canvas canvasBluetooth(&M5.Lcd);
 M5Canvas canvasAll(&M5.Lcd);
 BLE_Peripheral ble("AtomS3 BLE Debugger");
 const uint8_t DISPLAY_BUTTON = 41;
-unsigned long lastRecievedTime;
-bool isGreenCircle = false;
+unsigned long lastRecievedTime, lastWroteTime;
+bool isGreenCircle = false, wroteSerial2 = false;
 
 void setup() {
   auto cfg = M5.config(); // 本体初期設定
@@ -34,6 +34,7 @@ void setup() {
   xQueue = xQueueCreate(10, sizeof(QUEUE_DATA_SET));
   xModeQueue = xQueueCreate(10, sizeof(DebugMode));
   xSerial2RecievedFlagQueue = xQueueCreate(10, sizeof(char));
+  xSerial2WriteFlagQueue = xQueueCreate(10, sizeof(WrittenBy));
   lastRecievedTime = millis();
   
   xTaskCreatePinnedToCore(main_task, "main_task", 8192, NULL, 1, &thp[0], 0); 
@@ -41,9 +42,9 @@ void setup() {
 
 void loop(){
   BaseType_t result;
+
   QUEUE_DATA_SET recievedData;
   result = xQueueReceive(xQueue, &recievedData, 1);
-
   if (result == pdTRUE){
     if (std::strstr(recievedData.data, "*IMU X") != nullptr) {
       Serial.println("x");
@@ -84,11 +85,25 @@ void loop(){
     lastRecievedTime = millis();
     if (!isGreenCircle){
       isGreenCircle = true;
-      M5.Lcd.fillCircle(115, 35, 5, TFT_GREEN);
+      M5.Lcd.fillCircle(100, 36, 5, TFT_GREEN);
     }
   } else if ((millis() - lastRecievedTime) > 1000 && isGreenCircle){ // 1s以上受け取ってない
-    M5.Lcd.fillCircle(115, 35, 5, TFT_RED);
+    M5.Lcd.fillCircle(100, 36, 5, TFT_RED);
     isGreenCircle = false;
+  }
+
+  WrittenBy recievedAddr;
+  result = xQueueReceive(xSerial2WriteFlagQueue, &recievedAddr, 1);
+  if (result == pdTRUE) {
+    lastWroteTime = millis();
+    wroteSerial2 = true;
+    if (recievedAddr == WrittenBy::BLE){
+      M5.Lcd.fillCircle(115, 36, 5, TFT_GREEN);
+    } else { // == Serial0
+      M5.Lcd.fillCircle(115, 36, 5, TFT_GOLD);
+    }
+  } else if (wroteSerial2 && (millis() - lastWroteTime) > 2000){
+    M5.Lcd.fillCircle(115, 36, 5, TFT_RED);
   }
   delay(1);
 }
@@ -107,7 +122,7 @@ void initDisplay(){
   canvasTitle.fillRect(0, 0, 128, 26, TFT_WHITE);       // タイトルエリア背景
   canvasTitle.setTextColor(canvas.color565(50,50,255));
   canvasTitle.drawString("B", 4, 0, &fonts::efontJA_24);
-  canvasTitle.drawString("L", 14, 0, &fonts::efontJA_24);
+  canvasTitle.drawString("L", 15, 0, &fonts::efontJA_24);
   canvasTitle.drawString("E", 25, 0, &fonts::efontJA_24);
   canvasTitle.setTextColor(canvas.color565(255,50,50));
   canvasTitle.drawString("D", 37, 0, &fonts::efontJA_24);
@@ -121,6 +136,9 @@ void initDisplay(){
   canvasTitle.pushSprite(0,0);
   M5.Lcd.drawFastHLine(0, 46, 128, TFT_WHITE); // モードのバー
 
+  M5.Lcd.fillCircle(100, 36, 5, TFT_RED);
+  M5.Lcd.fillCircle(115, 36, 5, TFT_RED);
+
   // メモリ描画(カウント値表示)領域初期化
   canvas.setColorDepth(16);     // カラーモード設定(16bit)
   canvas.setTextWrap(false);    // テキストが画面からはみ出した時の折り返し無し
@@ -132,17 +150,18 @@ void initDisplay(){
   canvasSerial.setTextWrap(false);
   canvasBluetooth.setTextWrap(false);
   canvasAll.setTextWrap(false);
-  canvasSerial.createSprite(90, 20);
-  canvasBluetooth.createSprite(90, 20);
-  canvasAll.createSprite(90, 20);
-  canvasSerial.fillRect(0, 0, 90, 20, canvasSerial.color565(0,22,90));
-  canvasBluetooth.fillRect(0, 0, 90, 20, canvasSerial.color565(0,22,90));
-  canvasAll.fillRect(0, 0, 90, 20, canvasSerial.color565(0,22,90));
+  canvasSerial.createSprite(91, 20);
+  canvasBluetooth.createSprite(91, 20);
+  canvasAll.createSprite(91, 20);
+  canvasSerial.fillRect(0, 0, 91, 20, canvasSerial.color565(0,22,90));
+  canvasBluetooth.fillRect(0, 0, 91, 20, canvasSerial.color565(0,22,90));
+  canvasAll.fillRect(0, 0, 91, 20, canvasSerial.color565(0,22,90));
   canvasSerial.setTextColor(TFT_CYAN);
   canvasBluetooth.setTextColor(TFT_CYAN);
   canvasAll.setTextColor(TFT_CYAN);
-  canvasSerial.drawString("Serial", 4, 1, &fonts::efontJA_16);
-  canvasSerial.drawString("Mode", 55, 1, &fonts::efontJA_16);
+  canvasSerial.drawString("Ser", 4, 1, &fonts::efontJA_16);
+  canvasSerial.drawString("ial", 26, 1, &fonts::efontJA_16);
+  canvasSerial.drawString("Mode", 53, 1, &fonts::efontJA_16);
   canvasBluetooth.drawString("BLE Mode", 4, 1, &fonts::efontJA_16);
   canvasAll.drawString("ALL Mode", 4, 1, &fonts::efontJA_16);
 }
