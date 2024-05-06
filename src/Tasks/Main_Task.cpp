@@ -8,8 +8,8 @@ void main_task(void *pvParameters){
   while (1){
     // Serial Mode
     Serial.println("Serial Mode");
-    syncSerial(DebugMode::SERIAL_MODE);
     xQueueSendToBack(xModeQueue, &SERIAL_MODE, portMAX_DELAY);
+    syncSerial(DebugMode::SERIAL_MODE);
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA(DebugMode::SERIAL_MODE);
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
@@ -20,8 +20,8 @@ void main_task(void *pvParameters){
 
     // Bluetooth Mode
     Serial.println("Bluetooth Mode");
-    syncSerial(DebugMode::BLUETOOTH_MODE);
     xQueueSendToBack(xModeQueue, &BLUETOOTH_MODE, portMAX_DELAY);
+    syncSerial(DebugMode::BLUETOOTH_MODE);
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA(DebugMode::BLUETOOTH_MODE);
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
@@ -32,8 +32,8 @@ void main_task(void *pvParameters){
 
     // All Mode
     Serial.println("All Mode");
-    syncSerial(DebugMode::ALL_MODE);
     xQueueSendToBack(xModeQueue, &ALL_MODE, portMAX_DELAY);
+    syncSerial(DebugMode::ALL_MODE);
     while (digitalRead(DISPLAY_BUTTON) == HIGH){
       std::vector<char> recievedData = GET_SERIAL_DATA(DebugMode::ALL_MODE);
       if (digitalRead(DISPLAY_BUTTON) == LOW) break;
@@ -74,13 +74,13 @@ static void SEND_SERIAL(const DebugMode& mode, const std::vector<char>& charArra
   if (mode == DebugMode::SERIAL_MODE || mode == DebugMode::ALL_MODE){ // シリアルに送信
     Serial.write(sendArray, charArray.size());
 
-    recieveBLEandSerial(mode);
+    recieveBLEandSerial(DebugMode::SERIAL_MODE);
   }
   if (mode == DebugMode::BLUETOOTH_MODE || mode == DebugMode::ALL_MODE){ // BLEで送信
     if (ble.checkConnection()) {
       ble.write(sendArray, charArray.size());
 
-      recieveBLEandSerial(mode);
+      recieveBLEandSerial(DebugMode::BLUETOOTH_MODE);
     }
   }
   delete[] sendArray;
