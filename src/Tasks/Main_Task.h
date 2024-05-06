@@ -36,7 +36,8 @@ struct QUEUE_DATA_SET{
 
 void main_task(void *pvParameters);
 
-static void syncSerial();
-static std::vector<char> GET_SERIAL_DATA();
+static void syncSerial(const DebugMode& mode);
+static std::vector<char> GET_SERIAL_DATA(const DebugMode& mode);
 static void SEND_ANOTHER_TASK(const std::vector<char>& charArray);
-static void SEND_SERIAL(DebugMode mode, const std::vector<char>& charArray);
+static void SEND_SERIAL(const DebugMode& mode, const std::vector<char>& charArray);
+static void recieveBLEandSerial(const DebugMode& mode);
